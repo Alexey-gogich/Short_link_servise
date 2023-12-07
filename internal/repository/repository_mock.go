@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"reflect"
 	"short_link_servise/internal/entity"
 
@@ -26,27 +27,27 @@ func (m *MockLinkRepository) EXPECT() *MockLinkRepositoryMockRecorder {
 	return m.recorder
 }
 
-func (m *MockLinkRepository) Get(link *entity.ShortLink) (*entity.Link, error) {
+func (m *MockLinkRepository) Get(ctx context.Context, link *entity.ShortLink) (*entity.Link, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", link)
+	ret := m.ctrl.Call(m, "Get", ctx, link)
 	ret0, _ := ret[0].(*entity.Link)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (mr *MockLinkRepositoryMockRecorder) Get(link *entity.ShortLink) *gomock.Call {
+func (mr *MockLinkRepositoryMockRecorder) Get(ctx context.Context, link *entity.ShortLink) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockLinkRepository)(nil).Get), link)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockLinkRepository)(nil).Get), ctx, link)
 }
 
-func (m *MockLinkRepository) Create(link *entity.LinkCreate) error {
+func (m *MockLinkRepository) Create(ctx context.Context, link *entity.LinkCreate) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", link)
+	ret := m.ctrl.Call(m, "Create", ctx, link)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (mr *MockLinkRepositoryMockRecorder) Create(link *entity.LinkCreate) *gomock.Call {
+func (mr *MockLinkRepositoryMockRecorder) Create(ctx context.Context, link *entity.LinkCreate) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockLinkRepository)(nil).Create), link)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockLinkRepository)(nil).Create), ctx, link)
 }

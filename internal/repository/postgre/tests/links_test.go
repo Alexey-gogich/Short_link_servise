@@ -1,25 +1,25 @@
-package servise
+package repository
 
 import (
 	"context"
 	"fmt"
 	"short_link_servise/internal/entity"
-	"short_link_servise/internal/repository"
-	"short_link_servise/internal/servise"
+	"short_link_servise/internal/repository/postgre"
 	"testing"
 
-	"github.com/golang/mock/gomock"
+	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGet(t *testing.T) {
 	type fields struct {
-		repo *repository.MockLinkRepository
+		db sqlmock.Sqlmock
 	}
 
 	type args struct {
-		ctx  context.Context
-		link *entity.ShortLink
+		ctx       context.Context
+		shortLink *entity.ShortLink
 	}
 	ctx := context.Background()
 
@@ -31,18 +31,22 @@ func TestGet(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Successful call of serviseLinks.Get()",
+			name: "Successful call of repositoryLinks.Get()",
 			args: args{
 				ctx: ctx,
-				link: &entity.ShortLink{
+				shortLink: &entity.ShortLink{
 					Link: "vjka91njL_",
 				},
 			},
 			setup: func(a args, f fields) {
-				f.repo.EXPECT().Get(a.ctx, a.link).
-					Return(&entity.Link{
-						Link: "http://localhost",
-					}, nil)
+				rows := sqlmock.
+					NewRows([]string{
+						"url",
+					}).
+					AddRow(
+						"http://localhost",
+					)
+				f.db.ExpectQuery("Select url from links where short_url = $1").WithArgs(a.shortLink.Link).WillReturnRows(rows)
 			},
 			want: &entity.Link{
 				Link: "http://localhost",
@@ -50,15 +54,15 @@ func TestGet(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Error in repositoryLinks.Get()",
+			name: "Error in query repositoryLinks.Get()",
 			args: args{
 				ctx: ctx,
-				link: &entity.ShortLink{
+				shortLink: &entity.ShortLink{
 					Link: "vjka91njL_",
 				},
 			},
 			setup: func(a args, f fields) {
-				f.repo.EXPECT().Get(a.ctx, a.link).Return(nil, fmt.Errorf("Error in repositoryLinks.Get()"))
+				f.db.ExpectQuery("Select url from links where short_url = $1").WithArgs(a.shortLink.Link).WillReturnError(fmt.Errorf("Not found"))
 			},
 			want:    nil,
 			wantErr: true,
@@ -67,17 +71,19 @@ func TestGet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
+			database, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+			assert.NoError(t, err)
+			defer database.Close()
+
 			f := fields{
-				repo: repository.NewMockLinkRepository(ctrl),
+				db: mock,
 			}
 
-			linkRepo := servise.NewLinksServise(f.repo)
+			linkRepo := postgre.NewLinksRepo(sqlx.NewDb(database, "sqlmock"))
 
 			tt.setup(tt.args, f)
 
-			got, err := linkRepo.Get(tt.args.ctx, tt.args.link)
+			got, err := linkRepo.Get(tt.args.ctx, tt.args.shortLink)
 			if tt.wantErr == true {
 				assert.Error(t, err)
 			} else {
@@ -91,7 +97,7 @@ func TestGet(t *testing.T) {
 
 func TestCreate(t *testing.T) {
 	type fields struct {
-		repo *repository.MockLinkRepository
+		db sqlmock.Sqlmock
 	}
 
 	type args struct {
@@ -116,20 +122,23 @@ func TestCreate(t *testing.T) {
 				},
 			},
 			setup: func(a args, f fields) {
-				f.repo.EXPECT().Create(a.ctx, a.links).Return(nil)
+				f.db.ExpectExec("Insert into links (url, short_url) values ($1, $2)").WithArgs(a.links.Link, a.links.ShortLink).
+					WillReturnResult(sqlmock.NewResult(1, 1))
 			},
 			wantErr: false,
 		},
 		{
-			name: "Error in repositoryLinks.Get()",
+			name: "Error in query repositoryLinks.Get()",
 			args: args{
+				ctx: ctx,
 				links: &entity.LinkCreate{
 					Link:      "http://localhost",
 					ShortLink: "vjka91njL_",
 				},
 			},
 			setup: func(a args, f fields) {
-				f.repo.EXPECT().Create(a.ctx, a.links).Return(fmt.Errorf("Error in repositoryLinks.Get()"))
+				f.db.ExpectExec("Insert into links (url, short_url) values ($1, $2)").WithArgs(a.links.Link, a.links.ShortLink).
+					WillReturnError(fmt.Errorf("Exec error"))
 			},
 			wantErr: true,
 		},
@@ -137,17 +146,19 @@ func TestCreate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
+			database, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+			assert.NoError(t, err)
+			defer database.Close()
+
 			f := fields{
-				repo: repository.NewMockLinkRepository(ctrl),
+				db: mock,
 			}
 
-			linkRepo := servise.NewLinksServise(f.repo)
+			linkRepo := postgre.NewLinksRepo(sqlx.NewDb(database, "sqlmock"))
 
 			tt.setup(tt.args, f)
 
-			err := linkRepo.Create(tt.args.ctx, tt.args.links)
+			err = linkRepo.Create(tt.args.ctx, tt.args.links)
 			if tt.wantErr == true {
 				assert.Error(t, err)
 			} else {

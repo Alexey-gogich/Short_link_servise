@@ -1,12 +1,14 @@
-package servise
+package handlers
 
 import (
 	"context"
 	"fmt"
 	"short_link_servise/internal/entity"
-	"short_link_servise/internal/repository"
+	"short_link_servise/internal/handlers"
 	"short_link_servise/internal/servise"
 	"testing"
+
+	pb "short_link_servise/internal/proto"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -14,12 +16,12 @@ import (
 
 func TestGet(t *testing.T) {
 	type fields struct {
-		repo *repository.MockLinkRepository
+		serv *servise.MockLinkServise
 	}
 
 	type args struct {
-		ctx  context.Context
-		link *entity.ShortLink
+		ctx     context.Context
+		request *pb.GetRequest
 	}
 	ctx := context.Background()
 
@@ -27,25 +29,26 @@ func TestGet(t *testing.T) {
 		name    string
 		args    args
 		setup   func(a args, f fields)
-		want    *entity.Link
+		want    *pb.GetResponse
 		wantErr bool
 	}{
 		{
-			name: "Successful call of serviseLinks.Get()",
+			name: "Successful call of HandlersLinks.Get()",
 			args: args{
 				ctx: ctx,
-				link: &entity.ShortLink{
-					Link: "vjka91njL_",
+				request: &pb.GetRequest{
+					ShortUrl: "vjka91njL_",
 				},
 			},
 			setup: func(a args, f fields) {
-				f.repo.EXPECT().Get(a.ctx, a.link).
+				link := &entity.ShortLink{Link: a.request.ShortUrl}
+				f.serv.EXPECT().Get(a.ctx, link).
 					Return(&entity.Link{
 						Link: "http://localhost",
 					}, nil)
 			},
-			want: &entity.Link{
-				Link: "http://localhost",
+			want: &pb.GetResponse{
+				Url: "http://localhost",
 			},
 			wantErr: false,
 		},
@@ -53,12 +56,13 @@ func TestGet(t *testing.T) {
 			name: "Error in repositoryLinks.Get()",
 			args: args{
 				ctx: ctx,
-				link: &entity.ShortLink{
-					Link: "vjka91njL_",
+				request: &pb.GetRequest{
+					ShortUrl: "vjka91njL_",
 				},
 			},
 			setup: func(a args, f fields) {
-				f.repo.EXPECT().Get(a.ctx, a.link).Return(nil, fmt.Errorf("Error in repositoryLinks.Get()"))
+				link := &entity.ShortLink{Link: a.request.ShortUrl}
+				f.serv.EXPECT().Get(a.ctx, link).Return(nil, fmt.Errorf("Error in repositoryLinks.Get()"))
 			},
 			want:    nil,
 			wantErr: true,
@@ -70,14 +74,14 @@ func TestGet(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			f := fields{
-				repo: repository.NewMockLinkRepository(ctrl),
+				serv: servise.NewMockLinkServise(ctrl),
 			}
 
-			linkRepo := servise.NewLinksServise(f.repo)
+			linkservise := handlers.NewLinksHandler(f.serv)
 
 			tt.setup(tt.args, f)
 
-			got, err := linkRepo.Get(tt.args.ctx, tt.args.link)
+			got, err := linkservise.Get(tt.args.ctx, tt.args.request)
 			if tt.wantErr == true {
 				assert.Error(t, err)
 			} else {
@@ -91,12 +95,12 @@ func TestGet(t *testing.T) {
 
 func TestCreate(t *testing.T) {
 	type fields struct {
-		repo *repository.MockLinkRepository
+		serv *servise.MockLinkServise
 	}
 
 	type args struct {
-		ctx   context.Context
-		links *entity.LinkCreate
+		ctx     context.Context
+		request *pb.CreateRequest
 	}
 	ctx := context.Background()
 
@@ -104,33 +108,36 @@ func TestCreate(t *testing.T) {
 		name    string
 		args    args
 		setup   func(a args, f fields)
+		want    *pb.CreateResponse
 		wantErr bool
 	}{
 		{
 			name: "Successful call of repositoryLinks.Create()",
 			args: args{
 				ctx: ctx,
-				links: &entity.LinkCreate{
-					Link:      "http://localhost",
-					ShortLink: "vjka91njL_",
+				request: &pb.CreateRequest{
+					Url: "http://localhost",
 				},
 			},
 			setup: func(a args, f fields) {
-				f.repo.EXPECT().Create(a.ctx, a.links).Return(nil)
+				links := &entity.LinkCreate{Link: a.request.Url, ShortLink: "vjka91njL_"}
+				f.serv.EXPECT().Create(a.ctx, links).Return(nil)
 			},
+			want:    &pb.CreateResponse{},
 			wantErr: false,
 		},
 		{
 			name: "Error in repositoryLinks.Get()",
 			args: args{
-				links: &entity.LinkCreate{
-					Link:      "http://localhost",
-					ShortLink: "vjka91njL_",
+				request: &pb.CreateRequest{
+					Url: "http://localhost",
 				},
 			},
 			setup: func(a args, f fields) {
-				f.repo.EXPECT().Create(a.ctx, a.links).Return(fmt.Errorf("Error in repositoryLinks.Get()"))
+				links := &entity.LinkCreate{Link: a.request.Url, ShortLink: "vjka91njL_"}
+				f.serv.EXPECT().Create(a.ctx, links).Return(fmt.Errorf("Error in repositoryLinks.Get()"))
 			},
+			want:    nil,
 			wantErr: true,
 		},
 	}
@@ -140,18 +147,20 @@ func TestCreate(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			f := fields{
-				repo: repository.NewMockLinkRepository(ctrl),
+				serv: servise.NewMockLinkServise(ctrl),
 			}
 
-			linkRepo := servise.NewLinksServise(f.repo)
+			linkHandler := handlers.NewLinksHandler(f.serv)
 
 			tt.setup(tt.args, f)
 
-			err := linkRepo.Create(tt.args.ctx, tt.args.links)
+			got, err := linkHandler.Create(tt.args.ctx, tt.args.request)
 			if tt.wantErr == true {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				if assert.NoError(t, err) {
+					assert.Equal(t, tt.want, got)
+				}
 			}
 		})
 	}

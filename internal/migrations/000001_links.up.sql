@@ -1,5 +1,5 @@
-CREATE TABLE IF NOT EXISTS links(
+CREATE TABLE IF NOT EXISTS links (
     id bigSerial PRIMARY KEY,
     url varchar(30),
-    short_url int,
-)
+    short_url varchar(30) UNIQUE
+);

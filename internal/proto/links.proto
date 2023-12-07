@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package short_liks_proto;
+
+option go_package = "./short_links_proto";
+
+service Short_liks {
+    rpc Get(GetRequest) returns (GetResponse) {}
+    rpc Create(CreateRequest) returns (CreateResponse) {}
+}
+
+message GetRequest {
+    string short_url = 1;
+}
+
+message GetResponse {
+    string url = 1;
+}
+
+message CreateRequest {
+    string url = 1;
+}
+
+message CreateResponse {
+   
+}

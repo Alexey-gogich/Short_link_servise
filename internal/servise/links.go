@@ -1,7 +1,10 @@
 package servise
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
+	"regexp"
 	"short_link_servise/internal/entity"
 	"short_link_servise/internal/repository"
 	"short_link_servise/internal/utils"
@@ -19,23 +22,37 @@ func NewLinksServise(links repository.LinksRepo) *linkServise {
 	}
 }
 
-func (serv *linkServise) Get(link *entity.ShortLink) (*entity.Link, error) {
-	short, err := serv.repo.Get(link)
+func (serv *linkServise) Get(ctx context.Context, link *entity.ShortLink) (*entity.Link, error) {
+	short, err := serv.repo.Get(ctx, link)
 	if err != nil {
-		return nil, fmt.Errorf("/repository: %w", err)
+		if err == sql.ErrNoRows {
+			return nil, err
+		} else {
+			return nil, fmt.Errorf("/repository: %w", err)
+		}
 	}
 	return short, nil
 }
 
-func (serv *linkServise) Create(links *entity.LinkCreate) error {
-	var err error
+func (serv *linkServise) Create(ctx context.Context, links *entity.LinkCreate) error {
 	links.ShortLink = serv.utils.GenerateShortUrl()
+	err := serv.repo.Create(ctx, links)
 	if err != nil {
-		return fmt.Errorf("/utils: %w", err)
-	}
-	err = serv.repo.Create(links)
-	if err != nil {
-		return fmt.Errorf("/repository: %w", err)
+		UniqueError, regex_err := regexp.MatchString(err.Error(), "повторяющееся значение")
+		if regex_err != nil {
+			return regex_err
+		}
+		if UniqueError {
+			for {
+				links.ShortLink = serv.utils.GenerateShortUrl()
+				err := serv.repo.Create(ctx, links)
+				if err == nil {
+					break
+				}
+			}
+		} else {
+			return fmt.Errorf("/repository: %w", err)
+		}
 	}
 	return nil
 }
