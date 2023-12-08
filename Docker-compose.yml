@@ -1,0 +1,26 @@
+version: '3.1'
+
+services:
+
+  db:
+    image: postgres
+    restart: always
+    environment:
+        POSTGRES_DB: short_link_servise
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: portgres
+    ports:
+        - 5432:5432
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+
+  short_link:
+    build: ./
+    ports:
+      - 5248:5248
+    environment:
+      - DATABASETYPE=postgre

@@ -31,7 +31,7 @@ func NewCache(ItemLifeTime, CleanerInterval time.Duration) *cache {
 }
 
 func (cache *cache) Get(link *entity.ShortLink) (string, error) {
-	result, ok := cache.items.Load("vjka91njL_")
+	result, ok := cache.items.Load(link.Link)
 	if !ok {
 		return "", fmt.Errorf("Server error")
 	}
@@ -44,7 +44,8 @@ func (cache *cache) Insert(links *entity.LinkCreate) error {
 		link:  links.Link,
 		timer: time.Now().Add(cache.itemLifeTime),
 	}
-	cache.items.Store("vjka91njL_", value)
+	fmt.Println("Короткая ссылка: ", links.ShortLink)
+	cache.items.Store(links.ShortLink, value)
 	return nil
 }
 
